@@ -40,6 +40,7 @@ impl APIClient {
         let mut buf: Vec<u8> = vec![];
         response.copy_to(&mut buf)?;
 
+        print!("Status code: {}", response.status().as_u16());
         let mut response =
             request.1(http::status::StatusCode::from_u16(response.status().as_u16()).unwrap());
         response.append_slice(&buf);
@@ -50,7 +51,10 @@ impl APIClient {
             k8s_openapi::CreateResponse::Ok(job) => Ok(job),
             k8s_openapi::CreateResponse::Created(job) => Ok(job),
             k8s_openapi::CreateResponse::Accepted(job) => Ok(job),
-            k8s_openapi::CreateResponse::Other(_result) => Err(failure::err_msg("test")),
+            k8s_openapi::CreateResponse::Other(result) => match result {
+                Ok(value) => Err(failure::err_msg(serde_json::to_string(&value).unwrap())),
+                Err(err) => Err(failure::Error::from(err)),
+            },
         }
 
         // response.json().map_err(Error::from)
