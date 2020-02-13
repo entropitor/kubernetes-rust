@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use failure::Error;
 use http;
 use serde::de::DeserializeOwned;
@@ -8,13 +6,12 @@ use super::config::Configuration;
 
 /// APIClient requires `config::Configuration` includes client to connect with kubernetes cluster.
 pub struct APIClient {
-    configuration: Rc<Configuration>,
+    configuration: Configuration,
 }
 
 impl APIClient {
     pub fn new(configuration: Configuration) -> Self {
-        let rc = Rc::new(configuration);
-        APIClient { configuration: rc }
+        APIClient { configuration }
     }
 
     /// Returns kubernetes resources binded `Arnavion/k8s-openapi-codegen` APIs.
