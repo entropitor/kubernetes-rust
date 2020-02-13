@@ -9,17 +9,21 @@ pub struct APIClient {
     configuration: Configuration,
 }
 
+type Request<T> = (
+    http::Request<Vec<u8>>,
+    fn(http::StatusCode) -> k8s_openapi::ResponseBody<k8s_openapi::CreateResponse<T>>,
+);
 impl APIClient {
     pub fn new(configuration: Configuration) -> Self {
         APIClient { configuration }
     }
 
     /// Returns kubernetes resources binded `Arnavion/k8s-openapi-codegen` APIs.
-    pub fn request<T>(&self, request: http::Request<Vec<u8>>) -> Result<T, Error>
+    pub fn request<T>(&self, request: Request<T>) -> Result<T, Error>
     where
         T: DeserializeOwned,
     {
-        let (parts, body) = request.into_parts();
+        let (parts, body) = request.0.into_parts();
         let uri_str = format!("{}{}", self.configuration.base_path, parts.uri);
         let req = match parts.method {
             http::Method::GET => self.configuration.client.get(&uri_str),
@@ -32,6 +36,23 @@ impl APIClient {
         }
         .body(body);
 
-        req.send()?.json().map_err(Error::from)
+        let mut response = req.send()?;
+        let mut buf: Vec<u8> = vec![];
+        response.copy_to(&mut buf)?;
+
+        let mut response =
+            request.1(http::status::StatusCode::from_u16(response.status().as_u16()).unwrap());
+        response.append_slice(&buf);
+
+        let response = response.parse()?;
+
+        match response {
+            k8s_openapi::CreateResponse::Ok(job) => Ok(job),
+            k8s_openapi::CreateResponse::Created(job) => Ok(job),
+            k8s_openapi::CreateResponse::Accepted(job) => Ok(job),
+            k8s_openapi::CreateResponse::Other(_result) => Err(failure::err_msg("test")),
+        }
+
+        // response.json().map_err(Error::from)
     }
 }
