@@ -40,7 +40,6 @@ impl APIClient {
         let mut buf: Vec<u8> = vec![];
         response.copy_to(&mut buf)?;
 
-        print!("Status code: {}", response.status().as_u16());
         let mut response =
             request.1(http::status::StatusCode::from_u16(response.status().as_u16()).unwrap());
         response.append_slice(&buf);
